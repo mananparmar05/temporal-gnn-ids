@@ -11,47 +11,97 @@
 
 ## 📌 Executive Summary
 
-Modern cyber threats operate as distributed, multi-stage attacks across complex enterprise IP topologies. Traditional per-flow classifiers (e.g., Random Forest, MLPs) analyze network packets in isolation, ignoring critical **spatial topologies** (which hosts talk to whom) and **temporal dynamics** (how traffic patterns evolve over time windows).
+Modern enterprise networks generate massive, high-velocity streaming packet flows where advanced cyber threats operate across multi-stage attack campaigns. Traditional intrusion detection systems (IDS) analyze individual packets or static tabular flows in isolation, ignoring critical **spatial topologies** (communication graphs between IP hosts) and **temporal evolution** (how network traffic behavior transforms across consecutive time windows).
 
-**TGNN-IDS** addresses these challenges by modeling network traffic as a sequence of dynamic snapshot graphs $G^{(t-K+1)}, \dots, G^{(t)}$. It couples a **Graph Attention Network (GAT)** for spatial feature propagation across host nodes with a **Temporal Self-Attention Encoder** for sequential context, trained under an **Asymmetric Multi-Objective Loss** to strictly penalize missed intrusion alerts (False Negatives).
+**TGNN-IDS** models continuous network flow streams as sequences of weighted dynamic dynamic graph snapshots $G^{(t-K+1)}, \dots, G^{(t)}$. By coupling **Multi-Head Spatial Graph Attention Networks (GAT)** with **Hierarchical Temporal Self-Attention Encoders**, TGNN-IDS captures fine-grained spatial flow patterns and multi-window temporal context. The framework is optimized via an **Asymmetric Multi-Objective Loss ($\mathcal{L}_{\text{multi}}$)** that dynamically penalizes False Negatives (missed intrusions) while preserving high Precision along a Pareto frontier.
 
 ---
 
 ## 🚀 Key Technical Innovations
 
-* **C1: Dynamic Spatial-Temporal Graph Architecture:** Combines multi-head Spatial Graph Attention (GAT) to capture topological flow graphs with Multi-Head Temporal Self-Attention over sliding window sequences.
-* **C2: Asymmetric Multi-Objective Loss & Lambda-Sweep ($\mathcal{L}_{\text{multi}}$):** Customizable loss weighting $\mathcal{L} = \lambda_{\text{recall}} \cdot \mathcal{L}_{\text{FN}} + \lambda_{\text{fp}} \cdot \mathcal{L}_{\text{FP}}$ that enables Security Operations Centers (SOC) to tune penalty tradeoffs along the Precision-Recall Pareto frontier.
-* **C3: Zero-Shot Cross-Dataset Generalization:** Evaluates model transferability by training on **CIC-IDS2017** and performing zero-shot evaluation on unseen attack topologies from **UNSW-NB15**.
-* **C4: Real-Time Traffic Stream Simulator & Interactive Dashboard:** Built-in dynamic packet/flow stream generator and Streamlit web dashboard for live network monitoring and anomaly visualization.
-* **C5: Explainable Attention Weights:** Provides interpretable temporal attention heatmaps to pinpoint exact historical time windows contributing to an anomaly trigger.
+* **C1: Dynamic Spatial-Temporal Graph Architecture:** Dual-stage deep learning pipeline integrating Multi-Head Spatial Graph Attention (GAT) over dynamic IP flow graphs with Multi-Head Temporal Self-Attention over sliding window snapshot sequences.
+* **C2: Asymmetric Multi-Objective Loss & Lambda-Sweep ($\mathcal{L}_{\text{multi}}$):** Custom loss formulation $\mathcal{L} = \lambda_{\text{recall}} \cdot \mathcal{L}_{\text{FN}} + \lambda_{\text{fp}} \cdot \mathcal{L}_{\text{FP}}$ allowing Security Operations Centers (SOC) to tune penalty tradeoffs along the Precision-Recall Pareto frontier.
+* **C3: Zero-Shot Cross-Dataset Generalization:** Rigorous cross-domain evaluation where models trained exclusively on **CIC-IDS2017** are tested zero-shot against unseen attack vectors in **UNSW-NB15**.
+* **C4: Real-Time Traffic Stream Simulator & Interactive Dashboard:** Built-in dynamic packet/flow stream generator paired with a Streamlit web dashboard for live threat detection and node topology graph visualization.
+* **C5: Explainable Temporal Attention (XAI):** Extractable temporal attention matrix heatmaps ($\alpha_{\text{temporal}}$) that provide SOC analysts with incident root-cause explainability.
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Deep System Architecture
 
 ```text
-  Raw Network Flow Stream (PCAP / Flow CSV)
-                    │
-                    ▼
-     ┌─────────────────────────────┐
-     │ Dynamic Graph Snapshot Builder│ ──► Constructs Node Features X(t)
-     └──────────────┬──────────────┘     & Adjacency Matrix A(t)
-                    │
-                    ▼
-     ┌─────────────────────────────┐
-     │   Spatial GAT Encoder       │ ──► Multi-Head Graph Attention over IP Topologies
-     └──────────────┬──────────────┘
-                    │
-                    ▼
-     ┌─────────────────────────────┐
-     │ Temporal Self-Attention Module│ ──► Captures K-Step Historical Snapshot Dependencies
-     └──────────────┬──────────────┘
-                    │
-                    ▼
-     ┌─────────────────────────────┐
-     │ Asymmetric Multi-Objective  │ ──► False Negative (FN) vs False Positive (FP)
-     │        Loss Classifier      │     Optimized Threat Prediction
-     └─────────────────────────────┘
+========================================================================================================================
+                                     TGNN-IDS SYSTEM PIPELINE & DATAFLOW ARCHITECTURE
+========================================================================================================================
+
+  [ RAW TRAFFIC STREAM ]            [ GRAPH CONSTRUCTION LAYER ]             [ DYNAMIC SPATIAL GAT ENCODER ]
+ ┌──────────────────────┐          ┌─────────────────────────────┐         ┌──────────────────────────────────┐
+ │ • PCAP Packet Stream │ ───────► │ • Flow Feature Aggregator   │ ──────► │ • Node Feature Matrix X(t)       │
+ │ • NetFlow / IPFIX    │          │ • Dynamic Windowing (Δt=30s)│         │ • Weighted Adjacency Matrix A(t) │
+ │ • Synthetic Generator│          │ • Topology Graph Extraction │         └────────────────┬─────────────────┘
+ └──────────────────────┘          └─────────────────────────────┘                          │
+                                                                                            ▼
+                                                                           ┌──────────────────────────────────┐
+                                                                           │  Multi-Head Spatial Graph GAT    │
+                                                                           │  h_i = σ( Σ α_ij · W · x_j )     │
+                                                                           └────────────────┬─────────────────┘
+                                                                                            │ Spatial Embeddings
+                                                                                            ▼
+  [ EXPLAINABLE AI & SOC ]          [ ASYMMETRIC LOSS CLASSIFIER ]           [ HIERARCHICAL TEMPORAL ATTENTION ]
+ ┌──────────────────────┐          ┌─────────────────────────────┐         ┌──────────────────────────────────┐
+ │ • Live Streamlit GUI │ ◄─────── │ • Anomaly MLP Classification│ ◄────── │ • K-Snapshot Window Embedding    │
+ │ • Temporal Heatmaps  │          │   Head (Benign vs Anomaly)  │         │   H = [h(t-K+1), ..., h(t)]      │
+ │ • Topology Alerts    │          │ • Asymmetric Multi-Loss     │         │ • Sinusoidal Positional Encoding │
+ └──────────────────────┘          │   L = λ_recall*L_FN +       │         │ • Multi-Head Temporal Self-Attn  │
+                                   │       λ_fp*L_FP             │         │   Attn(Q,K,V) = Softmax(QK^T/√d)V│
+                                   └─────────────────────────────┘         └──────────────────────────────────┘
+
+========================================================================================================================
+```
+
+### Detailed Component Subsystems
+
+```text
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 1. INGESTION & SNAPSHOT SLICING LAYER                                                                              │
+ │    • Ingests raw network flows (source IP, dest IP, port, duration, bytes, packets, flags).                        │
+ │    • Slices traffic into K-sliding historical time windows: W(t-K+1), W(t-K+2), ..., W(t).                         │
+ └────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────┘
+                                                          │
+                                                          ▼
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 2. DYNAMIC GRAPH SNAPSHOT BUILDER G(t) = (V, E(t), X(t))                                                            │
+ │    • Nodes V: Active IP Hosts across enterprise network (Servers, Workstations, Attackers).                      │
+ │    • Edges E(t): Directed network communications weighted by flow volume & connection frequency.                 │
+ │    • Node Features X(t): Aggregated statistical vectors (Byte rates, packet entropy, port diversity, TCP flags).   │
+ └────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────┘
+                                                          │
+                                                          ▼
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 3. MULTI-HEAD SPATIAL GRAPH ATTENTION ENCODER (GAT)                                                                │
+ │    • Computes spatial attention coefficients between neighboring IP hosts:                                         │
+ │         e_ij = LeakyReLU( a^T [ W · x_i || W · x_j ] )                                                             │
+ │    • Aggregates structural neighborhood topology into node representation h_i(t).                                 │
+ │    • Residual skip connections + Layer Normalization for gradient stability.                                       │
+ └────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────┘
+                                                          │
+                                                          ▼
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 4. HIERARCHICAL TEMPORAL SELF-ATTENTION ENCODER                                                                    │
+ │    • Stacks spatial embeddings across K snapshot windows: H = [h(t-K+1), h(t-K+2), ..., h(t)].                    │
+ │    • Adds Sinusoidal Positional Embeddings P to preserve snapshot chronology.                                      │
+ │    • Applies Scaled Dot-Product Multi-Head Self-Attention:                                                         │
+ │         Attention(Q, K, V) = Softmax( (Q · K^T) / √d_k ) · V                                                      │
+ │    • Captures multi-window attack progression (e.g., Reconnaissance ──► Lateral Movement ──► Data Exfiltration).   │
+ └────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────┘
+                                                          │
+                                                          ▼
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ 5. ASYMMETRIC MULTI-OBJECTIVE LOSS CLASSIFIER & SOC TELEMETRY                                                      │
+ │    • Multi-Layer Perceptron (MLP) projects temporal graph embeddings to threat probability ŷ.                       │
+ │    • Evaluates weighted loss: L_multi = λ_recall · L_FN(y, ŷ) + λ_fp · L_FP(y, ŷ).                                  │
+ │    • Outputs real-time threat alerts, topology attack graphs, and temporal attention matrix heatmaps to SOC.       │
+ └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -92,17 +142,17 @@ temporal_gnn_ids/
 - Python 3.10+
 
 ### 2. Installation
-Clone the repository and set up the virtual environment:
+Clone the repository and activate the preconfigured virtual environment:
 
 ```bash
 # Clone repository
 git clone https://github.com/mananparmar05/temporal-gnn-ids.git
 cd temporal-gnn-ids
 
-# Activate pre-configured environment (or create a new venv)
+# Activate pre-configured environment
 source venv/bin/activate
 
-# Install dependencies (if setting up fresh)
+# Install dependencies (if fresh setup)
 pip install -r requirements.txt
 ```
 
