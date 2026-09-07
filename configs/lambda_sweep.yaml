@@ -1,0 +1,44 @@
+# ============================================================
+#  Lambda-Sweep Configuration for Pareto Frontier Optimization
+#  Sweeps lambda_recall / lambda_fp to trace Precision-Recall
+#  and FPR tradeoff curves.
+# ============================================================
+
+sweep:
+  strategy: "grid"            # grid | random | bayesian
+  num_trials: 20
+
+  # Grid search over lambda_recall values (lambda_fp = 1 - lambda_recall)
+  lambda_recall_range:
+    start: 0.1
+    end: 0.95
+    step: 0.05
+
+  # Per-trial training config overrides
+  training_overrides:
+    epochs: 50
+    early_stopping:
+      patience: 10
+      monitor: "val_f1"
+
+  # Metrics to record per trial
+  tracked_metrics:
+    - precision
+    - recall
+    - f1_score
+    - fpr
+    - auc_roc
+    - val_loss
+
+  # Output
+  output:
+    results_csv: "results/pareto_frontier.csv"
+    plot_path: "results/figures/pareto_frontier.png"
+    best_model_dir: "results/checkpoints/best_lambda/"
+
+  # Visualization
+  visualization:
+    plot_precision_recall: true
+    plot_fpr_vs_recall: true
+    plot_loss_curves: true
+    annotate_optimal: true    # Mark knee-point on Pareto curve

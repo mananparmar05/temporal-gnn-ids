@@ -1,0 +1,106 @@
+# ============================================================
+#  TGNN-IDS Default Training Configuration
+#  All hyperparameters for model architecture, training loop,
+#  and evaluation are defined here.
+# ============================================================
+
+# --- Model Architecture ---
+model:
+  # Spatial GAT Encoder
+  gat:
+    input_dim: 6              # Per-node flow feature vector dimension
+    hidden_dim: 64            # Hidden units per GAT layer
+    output_dim: 32            # Final spatial embedding dimension
+    num_heads: 4              # Number of attention heads
+    dropout: 0.3              # Dropout probability on attention coefficients
+    num_layers: 2             # Number of stacked GAT layers
+    residual: true            # Skip connections between GAT layers
+    activation: "elu"         # Activation function (elu, relu, leaky_relu)
+
+  # Temporal Self-Attention Encoder
+  temporal:
+    embed_dim: 32             # Must match gat.output_dim
+    num_heads: 4              # Temporal attention heads
+    num_layers: 2             # Stacked temporal encoder layers
+    feedforward_dim: 128      # FFN inner dimension
+    dropout: 0.2              # Temporal attention dropout
+    max_seq_len: 20           # Maximum snapshot sequence length
+    positional_encoding: "sinusoidal"  # sinusoidal | learned
+
+  # Classification Head
+  classifier:
+    hidden_dim: 64            # MLP hidden layer
+    num_classes: 2            # Binary: Benign vs Anomaly
+    dropout: 0.3
+
+# --- Training ---
+training:
+  epochs: 100
+  batch_size: 32
+  learning_rate: 0.001
+  weight_decay: 0.0001        # L2 regularization
+  optimizer: "adam"            # adam | adamw | sgd
+  scheduler:
+    type: "cosine"            # cosine | step | plateau
+    warmup_epochs: 5
+    min_lr: 0.00001
+  early_stopping:
+    patience: 15
+    min_delta: 0.001
+    monitor: "val_f1"         # Metric to monitor (val_loss, val_f1, val_recall)
+  gradient_clip: 1.0          # Max gradient norm
+
+# --- Data Pipeline ---
+data:
+  history_len: 5              # K: number of historical snapshot windows
+  window_duration_sec: 30     # Duration of each time window slice
+  train_split: 0.7
+  val_split: 0.15
+  test_split: 0.15
+  num_workers: 4              # DataLoader parallel workers
+  pin_memory: true
+  normalize: true             # Z-score normalize node features
+  augmentation:
+    enabled: false
+    noise_std: 0.01           # Gaussian noise injection on features
+    edge_drop_rate: 0.05      # Random edge masking probability
+
+# --- Loss Function ---
+loss:
+  type: "asymmetric_multi_objective"
+  lambda_recall: 0.7          # Weight on False Negative penalty
+  lambda_fp: 0.3              # Weight on False Positive penalty
+  label_smoothing: 0.05       # Soft label smoothing factor
+
+# --- Evaluation ---
+evaluation:
+  metrics:
+    - precision
+    - recall
+    - f1_score
+    - fpr
+    - auc_roc
+    - auc_pr
+  threshold: 0.5              # Classification decision boundary
+  cross_dataset:
+    enabled: false
+    source: "cicids2017"
+    target: "unswnb15"
+
+# --- Logging & Checkpointing ---
+logging:
+  level: "INFO"               # DEBUG | INFO | WARNING | ERROR
+  log_dir: "results/training_logs"
+  tensorboard: false
+  log_every_n_steps: 10
+  save_attention_weights: true
+
+checkpointing:
+  save_dir: "results/checkpoints"
+  save_best: true
+  save_every_n_epochs: 10
+  filename_template: "tgnn_ids_epoch{epoch}_f1{val_f1:.4f}.pt"
+
+# --- Reproducibility ---
+seed: 42
+deterministic: true

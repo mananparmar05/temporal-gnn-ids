@@ -1,0 +1,78 @@
+# ============================================================
+#  Dataset Path & Preprocessing Configuration
+# ============================================================
+
+datasets:
+  cicids2017:
+    name: "CIC-IDS2017"
+    raw_dir: "data/cicids2017/"
+    preprocessed_dir: "data/preprocessed/cicids2017/"
+    files:
+      - "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv"
+      - "Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv"
+      - "Friday-WorkingHours-Morning.pcap_ISCX.csv"
+      - "Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv"
+      - "Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv"
+      - "Wednesday-workingHours.pcap_ISCX.csv"
+      - "Tuesday-WorkingHours.pcap_ISCX.csv"
+      - "Monday-WorkingHours.pcap_ISCX.csv"
+    label_column: " Label"
+    benign_label: "BENIGN"
+    feature_columns:
+      src_ip: " Source IP"
+      dst_ip: " Destination IP"
+      src_port: " Source Port"
+      dst_port: " Destination Port"
+      protocol: " Protocol"
+      duration: " Flow Duration"
+      total_fwd_packets: " Total Fwd Packets"
+      total_bwd_packets: " Total Backward Packets"
+      flow_bytes_per_sec: "Flow Bytes/s"
+      flow_packets_per_sec: "Flow Packets/s"
+      flow_iat_mean: " Flow IAT Mean"
+      fwd_iat_mean: " Fwd IAT Mean"
+      bwd_iat_mean: " Bwd IAT Mean"
+      fwd_psh_flags: " Fwd PSH Flags"
+      syn_flag_count: " SYN Flag Count"
+      rst_flag_count: " RST Flag Count"
+      ack_flag_count: " ACK Flag Count"
+    preprocessing:
+      drop_inf: true
+      drop_nan: true
+      clip_outliers: true
+      outlier_percentile: 99.5
+
+  unswnb15:
+    name: "UNSW-NB15"
+    raw_dir: "data/unswnb15/"
+    preprocessed_dir: "data/preprocessed/unswnb15/"
+    files:
+      - "UNSW_NB15_training-set.csv"
+      - "UNSW_NB15_testing-set.csv"
+    label_column: "label"
+    benign_label: 0
+    attack_categories:
+      - "Fuzzers"
+      - "Analysis"
+      - "Backdoor"
+      - "DoS"
+      - "Exploits"
+      - "Generic"
+      - "Reconnaissance"
+      - "Shellcode"
+      - "Worms"
+    feature_columns:
+      src_ip: "srcip"
+      dst_ip: "dstip"
+      src_port: "sport"
+      dst_port: "dsport"
+      protocol: "proto"
+      duration: "dur"
+      src_bytes: "sbytes"
+      dst_bytes: "dbytes"
+      src_pkts: "spkts"
+      dst_pkts: "dpkts"
+    preprocessing:
+      drop_inf: true
+      drop_nan: true
+      encode_categorical: true
