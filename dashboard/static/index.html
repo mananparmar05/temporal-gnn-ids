@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TGNN-IDS Security Analyst Monitor</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Vis.js Network for dynamic graph rendering -->
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"></path>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">TGNN-IDS Monitor</div>
+        <div class="brand-subtitle">Temporal Graph Neural Network for Network Intrusion Detection</div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <div class="status-badge">
+        <span class="status-dot"></span>
+        <span id="system-status">ENGINE ONLINE</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Dashboard Grid -->
+  <main class="dashboard-grid">
+    
+    <!-- Left Column: Graph Stream & Controls -->
+    <section>
+      <div class="glass-card">
+        <div class="card-title">
+          <span>Live Dynamic Traffic Graph Snapshot G(t)</span>
+          <span class="tag" id="time-step-tag">Window: t=0</span>
+        </div>
+        
+        <!-- Network Canvas -->
+        <div id="graph-canvas"></div>
+        
+        <!-- Stream Controls -->
+        <div class="controls-bar">
+          <button class="btn" id="btn-next">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M4 12a1 1 0 0 0 1.6.8l7-5a1 1 0 0 0 0-1.6l-7-5A1 1 0 0 0 4 2v10z"/></svg>
+            Next Window
+          </button>
+          <button class="btn btn-secondary" id="btn-play">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.596 8.697l-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.23-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
+            Auto Stream
+          </button>
+          <span style="margin-left: auto; font-size: 0.8rem; color: var(--text-muted);">
+            Node Color: <span style="color: #ef4444; font-weight: 600;">Red (Anomaly ≥ 0.5)</span> | <span style="color: #3b82f6; font-weight: 600;">Blue (Benign)</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- Bottom Benchmark Card -->
+      <div class="glass-card" style="margin-top: 1.5rem;">
+        <div class="card-title">
+          <span>Cross-Dataset Zero-Shot Benchmark (Contribution C3)</span>
+          <span class="tag">CIC-IDS2017 ➔ UNSW-NB15</span>
+        </div>
+        <table class="metrics-table">
+          <thead>
+            <tr>
+              <th>Model Baseline</th>
+              <th>In-Dist Recall</th>
+              <th>In-Dist F1</th>
+              <th>Zero-Shot Recall</th>
+              <th>Zero-Shot F1</th>
+              <th>Recall Drop (C3)</th>
+            </tr>
+          </thead>
+          <tbody id="benchmark-table-body">
+            <tr><td colspan="6" style="text-align: center;">Loading benchmark metrics...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Right Column: Attention Inspector & Pareto Frontier -->
+    <section style="display: flex; flex-direction: column; gap: 1.5rem;">
+      
+      <!-- Flagged Anomaly Alerts -->
+      <div class="glass-card">
+        <div class="card-title">
+          <span>Flagged Host Anomalies</span>
+          <span class="tag" id="alerts-count-tag" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4);">0 Flagged</span>
+        </div>
+        <div class="alert-list" id="alert-list">
+          <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem 0;">
+            No anomalies detected in current window.
+          </div>
+        </div>
+      </div>
+
+      <!-- Temporal Attention Interpretability (C1) -->
+      <div class="glass-card">
+        <div class="card-title">
+          <span>Temporal Attention Interpretability (C1)</span>
+          <span class="tag">β_k(t) Attribution</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);" id="attn-host-info">
+          Select an anomalous host to view temporal history weights:
+        </div>
+        
+        <div class="attn-bars" id="attn-bars-container">
+          <div class="attn-bar-col"><div class="attn-bar-fill" style="height: 10%;"></div><div class="attn-bar-label">t-4</div></div>
+          <div class="attn-bar-col"><div class="attn-bar-fill" style="height: 20%;"></div><div class="attn-bar-label">t-3</div></div>
+          <div class="attn-bar-col"><div class="attn-bar-fill" style="height: 15%;"></div><div class="attn-bar-label">t-2</div></div>
+          <div class="attn-bar-col"><div class="attn-bar-fill" style="height: 35%;"></div><div class="attn-bar-label">t-1</div></div>
+          <div class="attn-bar-col"><div class="attn-bar-fill" style="height: 80%;"></div><div class="attn-bar-label">t (Now)</div></div>
+        </div>
+      </div>
+
+      <!-- Multi-Objective Lambda Sweep (C2) -->
+      <div class="glass-card">
+        <div class="card-title">
+          <span>Multi-Objective λ-Sweep (Contribution C2)</span>
+          <span class="tag">Recall / FPR Pareto Frontier</span>
+        </div>
+        <table class="metrics-table">
+          <thead>
+            <tr>
+              <th>λ_recall</th>
+              <th>λ_fp</th>
+              <th>Attack Recall</th>
+              <th>False Positive Rate</th>
+              <th>F1 Score</th>
+            </tr>
+          </thead>
+          <tbody id="pareto-table-body">
+            <tr><td colspan="5" style="text-align: center;">Loading Pareto curve...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
