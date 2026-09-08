@@ -1,6 +1,6 @@
 """
 TGNN-IDS All-in-One CLI Entrypoint & Runner
-Supports training on synthetic traffic streams, real CIC-IDS2017, and UNSW-NB15 datasets.
+Supports Quick Demo Mode (~1.5 mins) and Full Production Mode (~30-45 mins across all 2.8M flows).
 """
 
 import sys
@@ -20,9 +20,11 @@ from training.lambda_sweep import run_lambda_sweep
 from evaluation.cross_dataset_eval import CrossDatasetEvaluator
 
 
-def run_training(dataset_name="cicids2017", epochs=10, history_len=5, lr=0.005, lambda_recall=0.7):
+def run_training(dataset_name="cicids2017", full_dataset=False, epochs=10, history_len=5, lr=0.005, lambda_recall=0.7):
     print("=" * 75)
     print("  TGNN-IDS: Temporal Graph Neural Network Intrusion Detection")
+    mode_title = "FULL PRODUCTION MODE (2.8M+ Flows)" if full_dataset else "QUICK DEMO MODE (Sampled Flow Windows)"
+    print(f"  Execution Mode: {mode_title}")
     print("=" * 75)
 
     parser = FlowLogParser()
@@ -33,17 +35,26 @@ def run_training(dataset_name="cicids2017", epochs=10, history_len=5, lr=0.005, 
             print("[Error] No CSV files found in data/cicids2017/")
             return
 
-        target_file = cic_files[0]
-        print(f"[1/4] Loading real CIC-IDS2017 dataset file: {os.path.basename(target_file)}...")
-        df_raw = parser.parse_cicids2017_csv(target_file)
+        if full_dataset:
+            print(f"[1/4] Loading ALL {len(cic_files)} raw CIC-IDS2017 dataset files (1.7 GB)...")
+            dfs = []
+            for f in cic_files:
+                print(f"      Reading {os.path.basename(f)}...")
+                dfs.append(parser.parse_cicids2017_csv(f))
+            import pandas as pd
+            df_raw = pd.concat(dfs, ignore_index=True)
+            chunk_size = max(2000, len(df_raw) // 40)
+        else:
+            target_file = cic_files[0]
+            print(f"[1/4] Loading CIC-IDS2017 dataset file: {os.path.basename(target_file)}...")
+            df_raw = parser.parse_cicids2017_csv(target_file)
+            chunk_size = max(500, len(df_raw) // 15)
 
-        # Slice traffic flows into discrete temporal snapshot windows
-        chunk_size = max(500, len(df_raw) // 15)
-        num_chunks = min(15, len(df_raw) // chunk_size)
+        num_chunks = min(40 if full_dataset else 15, len(df_raw) // chunk_size)
         windows_df = [df_raw.iloc[i * chunk_size : (i + 1) * chunk_size].copy() for i in range(num_chunks)]
 
         hosts = list(set(df_raw['src_ip'].unique()) | set(df_raw['dst_ip'].unique()))
-        print(f"      Parsed {len(df_raw)} network flows across {len(hosts)} IP hosts in {num_chunks} snapshot windows.")
+        print(f"      Parsed {len(df_raw):,} network connection flows across {len(hosts)} IP hosts in {num_chunks} snapshot windows.")
 
     elif dataset_name.lower() in ["unswnb15", "unsw"]:
         unsw_files = sorted(glob.glob("data/unswnb15/*.csv"))
@@ -51,18 +62,24 @@ def run_training(dataset_name="cicids2017", epochs=10, history_len=5, lr=0.005, 
             print("[Error] No CSV files found in data/unswnb15/")
             return
 
-        # Prefer training set if present
-        train_files = [f for f in unsw_files if "training" in f.lower() or "testing" in f.lower()]
-        target_file = train_files[0] if train_files else unsw_files[0]
-        print(f"[1/4] Loading real UNSW-NB15 dataset file: {os.path.basename(target_file)}...")
-        df_raw = parser.parse_unswnb15_csv(target_file)
+        if full_dataset:
+            print(f"[1/4] Loading ALL {len(unsw_files)} raw UNSW-NB15 dataset files...")
+            dfs = [parser.parse_unswnb15_csv(f) for f in unsw_files if "features" not in f.lower() and "events" not in f.lower()]
+            import pandas as pd
+            df_raw = pd.concat(dfs, ignore_index=True)
+            chunk_size = max(2000, len(df_raw) // 40)
+        else:
+            train_files = [f for f in unsw_files if "training" in f.lower() or "testing" in f.lower()]
+            target_file = train_files[0] if train_files else unsw_files[0]
+            print(f"[1/4] Loading UNSW-NB15 dataset file: {os.path.basename(target_file)}...")
+            df_raw = parser.parse_unswnb15_csv(target_file)
+            chunk_size = max(500, len(df_raw) // 15)
 
-        chunk_size = max(500, len(df_raw) // 15)
-        num_chunks = min(15, len(df_raw) // chunk_size)
+        num_chunks = min(40 if full_dataset else 15, len(df_raw) // chunk_size)
         windows_df = [df_raw.iloc[i * chunk_size : (i + 1) * chunk_size].copy() for i in range(num_chunks)]
 
         hosts = list(set(df_raw['src_ip'].unique()) | set(df_raw['dst_ip'].unique()))
-        print(f"      Parsed {len(df_raw)} network flows across {len(hosts)} IP hosts in {num_chunks} snapshot windows.")
+        print(f"      Parsed {len(df_raw):,} network connection flows across {len(hosts)} IP hosts in {num_chunks} snapshot windows.")
 
     else:
         print("[1/4] Generating synthetic dynamic network traffic stream...")
@@ -90,10 +107,10 @@ def run_training(dataset_name="cicids2017", epochs=10, history_len=5, lr=0.005, 
     trainer = TGNNTrainer(model, lr=lr, lambda_recall=lambda_recall)
 
     for epoch in range(1, epochs + 1):
-        loss, fn_loss, fp_loss = trainer.train_epoch(train_seqs)
+        loss, fn_loss, fp_loss = trainer.train_epoch(train_seqs, epoch=epoch)
         print(f"  Epoch {epoch:02d}/{epochs:02d} | Total Loss: {loss:.4f} | FN Loss (Missed): {fn_loss:.4f} | FP Loss (Alerts): {fp_loss:.4f}")
 
-    # Save model weights & training logs to results/
+    # Save model checkpoint and training log history
     trainer.save_checkpoint()
 
     print("\n[4/4] Evaluating on held-out test snapshot windows...")
@@ -157,11 +174,12 @@ if __name__ == '__main__':
     parser.add_argument("mode", choices=["train", "evaluate", "dashboard"], nargs="?", default="train")
     parser.add_argument("--dataset", choices=["cicids2017", "unswnb15", "synthetic"], default="cicids2017",
                         help="Dataset to train on (default: cicids2017)")
+    parser.add_argument("--full", action="store_true", help="Process ALL raw dataset CSV files (Full Production Run ~30-45 mins)")
     parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
     args = parser.parse_args()
 
     if args.mode == "train":
-        run_training(dataset_name=args.dataset, epochs=args.epochs)
+        run_training(dataset_name=args.dataset, full_dataset=args.full, epochs=args.epochs)
     elif args.mode == "evaluate":
         run_evaluation_demo()
     elif args.mode == "dashboard":
