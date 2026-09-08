@@ -93,6 +93,9 @@ def run_training(dataset_name="cicids2017", epochs=10, history_len=5, lr=0.005, 
         loss, fn_loss, fp_loss = trainer.train_epoch(train_seqs)
         print(f"  Epoch {epoch:02d}/{epochs:02d} | Total Loss: {loss:.4f} | FN Loss (Missed): {fn_loss:.4f} | FP Loss (Alerts): {fp_loss:.4f}")
 
+    # Save model weights & training logs to results/
+    trainer.save_checkpoint()
+
     print("\n[4/4] Evaluating on held-out test snapshot windows...")
     metrics = trainer.evaluate(test_seqs)
     print("-" * 55)
