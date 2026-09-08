@@ -33,19 +33,19 @@ Modern enterprise networks generate massive, high-velocity streaming packet flow
 ```text
   ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
   │                                    NETWORK FLOW LOG STREAM                                      │
-  │                     (Source IP, Destination IP, Protocol, Duration, Bytes, Packets)            │
+  │                     (Source IP, Destination IP, Protocol, Duration, Bytes, Packets)             │
   └────────────────────────────────────────────────┬────────────────────────────────────────────────┘
                                                    │
                                                    ▼
   ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
   │ 1. INGESTION & TEMPORAL SLICING                                                                 │
   │    • Parser extracts statistical flow features (parser.py)                                      │
-  │    • Slices traffic into K historical sliding windows: W(t-K+1), ..., W(t)                     │
+  │    • Slices traffic into K historical sliding windows: W(t-K+1), ..., W(t)                      │
   └────────────────────────────────────────────────┬────────────────────────────────────────────────┘
                                                    │
                                                    ▼
   ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
-  │ 2. DYNAMIC GRAPH SNAPSHOT BUILDER G(t) = (V, E_t, X_t) (graph_builder.py)                      │
+  │ 2. DYNAMIC GRAPH SNAPSHOT BUILDER G(t) = (V, E_t, X_t) (graph_builder.py)                       │
   │    • Nodes V: Active IP hosts (servers, workstations, external IPs)                             │
   │    • Edges E_t: Directed communication flows weighted by bytes & packet counts                  │
   │    • Node Features X_t: Aggregated traffic statistics + GraphNorm (graph_norm.py)               │
@@ -55,7 +55,7 @@ Modern enterprise networks generate massive, high-velocity streaming packet flow
   ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
   │ 3. MULTI-HEAD SPATIAL GAT ENCODER (gat_encoder.py)                                              │
   │    • Attention coefficients: e_ij = LeakyReLU( a^T [ W · x_i || W · x_j ] )                     │
-  │    • Multi-head aggregation: h_i(t) = ||_{k=1}^K σ( ∑_{j ∈ N(i)} α_ij^k · W^k · x_j )          │
+  │    • Multi-head aggregation: h_i(t) = ||_{k=1}^K σ( ∑_{j ∈ N(i)} α_ij^k · W^k · x_j )           │
   │    • Residual connections + GraphNorm for gradient stability                                    │
   └────────────────────────────────────────────────┬────────────────────────────────────────────────┘
                                                    │
@@ -71,7 +71,7 @@ Modern enterprise networks generate massive, high-velocity streaming packet flow
   ┌─────────────────────────────────────────────────────────────────────────────────────────────────┐
   │ 5. SCORING HEAD & ASYMMETRIC MULTI-OBJECTIVE LOSS (tgnn_ids.py & multi_objective_loss.py)       │
   │    • MLP classification head produces anomaly probability ŷ ∈ [0, 1]                            │
-  │    • L_multi = λ_recall · L_FN(y, ŷ) + λ_fp · L_FP(y, ŷ) (Contribution C2)                     │
+  │    • L_multi = λ_recall · L_FN(y, ŷ) + λ_fp · L_FP(y, ŷ) (Contribution C2)                      │
   │    • Real-time alerts & temporal attention attribution streamed to SOC Dashboard (app.py)       │
   └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
